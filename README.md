@@ -2,7 +2,7 @@
 
 ### 🔗 [Live Demo](https://dicom-3d-viewer.vercel.app/)
 
-A web-based medical imaging viewer that renders DICOM data in 2D slices and 3D volume projections. Built for radiologists, medical students, and healthcare developers exploring diagnostic imaging visualization.
+A web-based medical imaging viewer that renders DICOM data in 2D slices and 3D surface projections. Built for radiologists, medical students, and healthcare developers exploring diagnostic imaging visualization.
 
 ## Why This Project
 
@@ -11,18 +11,18 @@ Medical imaging is the backbone of modern diagnostics — CT, MRI, and PET scans
 ## Features
 
 - **Multi-Planar Reconstruction** — View axial, coronal, and sagittal planes
-- **3D Volume Rendering** — Maximum Intensity Projection (MIP) with rotation
+- **3D Surface Rendering** — Interactive skull visualization with Phong shading
 - **Window/Level Presets** — Brain, bone, and soft tissue visualization
-- **Interactive Controls** — Slice scrolling, zoom, auto-play through volume
+- **Interactive Controls** — Slice scrolling, zoom, rotation, auto-play
 - **Real-time Rendering** — Pure JavaScript canvas rendering, no plugins required
-- **DICOM Metadata Display** — Study information panel
+- **Anatomical Accuracy** — Eye sockets, nasal cavity, cranium structure
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 18 |
-| Rendering | HTML5 Canvas, Custom Volume Renderer |
+| Rendering | HTML5 Canvas, Surface Ray Marching |
 | Styling | Tailwind CSS |
 | Icons | Lucide React |
 | Standard | DICOM (Digital Imaging and Communications in Medicine) |
@@ -40,7 +40,7 @@ Medical imaging is the backbone of modern diagnostics — CT, MRI, and PET scans
 ┌─────────────────────────────────────────────────────────────┐
 │                   Volume Processing                         │
 │  • Slice extraction     • Window/level transform            │
-│  • MPR reconstruction   • MIP ray marching                  │
+│  • MPR reconstruction   • Surface ray marching              │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -57,16 +57,17 @@ Medical imaging is the backbone of modern diagnostics — CT, MRI, and PET scans
 | **Hounsfield Units (HU)** | CT density scale: Air (-1000), Water (0), Bone (+1000) |
 | **Window/Level** | Contrast adjustment to visualize specific tissue densities |
 | **Multi-Planar Reconstruction** | Viewing volume from different anatomical planes |
-| **Maximum Intensity Projection** | 3D rendering showing highest density along each ray |
+| **Surface Rendering** | 3D visualization showing first surface hit along each ray |
+| **Phong Shading** | Realistic lighting with ambient and diffuse components |
 
 ## Window Presets
 
 | Preset | Window Center | Window Width | Use Case |
 |--------|---------------|--------------|----------|
-| Default | 40 HU | 400 HU | General viewing |
-| Brain | 40 HU | 80 HU | Gray/white matter differentiation |
-| Bone | 400 HU | 1500 HU | Skeletal structures |
-| Soft Tissue | 50 HU | 350 HU | Organs and muscles |
+| Default | 40 HU | 80 HU | General viewing |
+| Brain | 35 HU | 60 HU | Gray/white matter differentiation |
+| Bone | 500 HU | 2000 HU | Skeletal structures |
+| Soft Tissue | 50 HU | 400 HU | Organs and muscles |
 
 ## Getting Started
 
@@ -92,10 +93,10 @@ npm run dev
 ### Usage
 
 1. Open `http://localhost:5173` in your browser
-2. Use view buttons to switch between Axial, Coronal, Sagittal, and 3D MIP
+2. Use view buttons to switch between Axial, Coronal, Sagittal, and 3D Skull
 3. Scroll through slices with the slider or play button
 4. Adjust window presets to visualize different tissue types
-5. In 3D mode, drag to rotate the volume
+5. In 3D mode, drag to rotate the skull
 
 ## Project Structure
 

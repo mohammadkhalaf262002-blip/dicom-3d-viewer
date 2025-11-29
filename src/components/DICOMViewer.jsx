@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Layers, RotateCcw, ZoomIn, ZoomOut, Sun, Contrast, Brain, Bone, Heart, Upload, ChevronLeft, ChevronRight, Play, Pause, Crosshair } from 'lucide-react';
+import { Layers, RotateCcw, ZoomIn, ZoomOut, Sun, Contrast, Brain, Bone, Heart, Upload, ChevronLeft, ChevronRight, Play, Pause, Crosshair, Box } from 'lucide-react';
 
 export default function DICOMViewer() {
   const canvasRef = useRef(null);
@@ -10,11 +10,11 @@ export default function DICOMViewer() {
   const [preset, setPreset] = useState('default');
   const [view, setView] = useState('axial');
   const [playing, setPlaying] = useState(false);
-  const [rotation, setRotation] = useState({ x: 15, y: 25 });
+  const [rotation, setRotation] = useState({ x: 10, y: -20 });
   const [is3D, setIs3D] = useState(false);
   const [volumeData, setVolumeData] = useState(null);
 
-  // Generate realistic brain CT phantom
+  // Generate skull phantom
   useEffect(() => {
     const size = 128;
     const depth = 100;
@@ -28,52 +28,52 @@ export default function DICOMViewer() {
           const idx = z * size * size + y * size + x;
           const dx = x - cx, dy = y - cy, dz = z - cz;
           
-          const outerSkull = Math.sqrt((dx/48)**2 + (dy/54)**2 + (dz/38)**2);
-          const innerSkull = Math.sqrt((dx/43)**2 + (dy/49)**2 + (dz/33)**2);
+          // Skull shape (ellipsoid)
+          const outerSkull = Math.sqrt((dx/46)**2 + (dy/52)**2 + (dz/36)**2);
+          const innerSkull = Math.sqrt((dx/41)**2 + (dy/47)**2 + (dz/31)**2);
           
-          // Default to air
+          // Default: air outside
           data[idx] = -1000;
           
-          // Skull bone
+          // Skull bone shell
           if (outerSkull <= 1.0 && innerSkull > 1.0) {
-            data[idx] = 800 + Math.random() * 400;
-          }
-          // Brain tissue
-          else if (innerSkull <= 1.0) {
-            // Gray matter
-            data[idx] = 37 + Math.random() * 8;
+            data[idx] = 1000;
             
-            // White matter
-            const whiteMatter = Math.sqrt((dx/28)**2 + (dy/32)**2 + (dz/22)**2);
-            if (whiteMatter <= 1.0) {
-              data[idx] = 28 + Math.random() * 6;
+            // LEFT EYE SOCKET - carve out
+            const leftEyeDist = Math.sqrt(((dx+15)/9)**2 + ((dy+30)/10)**2 + ((dz)/8)**2);
+            if (leftEyeDist < 1.0) {
+              data[idx] = -1000; // Air
             }
+            
+            // RIGHT EYE SOCKET - carve out
+            const rightEyeDist = Math.sqrt(((dx-15)/9)**2 + ((dy+30)/10)**2 + ((dz)/8)**2);
+            if (rightEyeDist < 1.0) {
+              data[idx] = -1000; // Air
+            }
+            
+            // NASAL CAVITY - carve out
+            const nasalDist = Math.sqrt((dx/5)**2 + ((dy+38)/7)**2 + ((dz)/6)**2);
+            if (nasalDist < 1.0) {
+              data[idx] = -1000; // Air
+            }
+            
+            // MOUTH AREA - carve out
+            const mouthDist = Math.sqrt((dx/12)**2 + ((dy+45)/5)**2 + ((dz)/8)**2);
+            if (mouthDist < 1.0 && outerSkull <= 1.0) {
+              data[idx] = -1000;
+            }
+          }
+          
+          // Brain inside (soft tissue)
+          if (innerSkull <= 1.0) {
+            data[idx] = 40 + Math.random() * 10;
             
             // Ventricles
-            const leftVent = Math.sqrt(((dx+10)/6)**2 + ((dy)/12)**2 + ((dz)/10)**2);
-            const rightVent = Math.sqrt(((dx-10)/6)**2 + ((dy)/12)**2 + ((dz)/10)**2);
-            if (leftVent <= 1.0 || rightVent <= 1.0) {
-              data[idx] = 5 + Math.random() * 5;
+            const leftVent = Math.sqrt(((dx+8)/5)**2 + ((dy)/10)**2 + ((dz)/8)**2);
+            const rightVent = Math.sqrt(((dx-8)/5)**2 + ((dy)/10)**2 + ((dz)/8)**2);
+            if (leftVent < 1.0 || rightVent < 1.0) {
+              data[idx] = 5;
             }
-            
-            // Tumor
-            const tumor = Math.sqrt(((dx-16)/8)**2 + ((dy-6)/6)**2 + ((dz+3)/5)**2);
-            if (tumor <= 1.0) {
-              data[idx] = 55 + Math.random() * 15;
-            }
-          }
-          
-          // Eye sockets (air cavities in skull)
-          const leftEye = Math.sqrt(((dx+16)/6)**2 + ((dy+38)/8)**2 + ((dz)/5)**2);
-          const rightEye = Math.sqrt(((dx-16)/6)**2 + ((dy+38)/8)**2 + ((dz)/5)**2);
-          if ((leftEye <= 1.0 || rightEye <= 1.0) && outerSkull <= 1.0) {
-            data[idx] = -800;
-          }
-          
-          // Nasal cavity
-          const nasal = Math.sqrt((dx/5)**2 + ((dy+42)/8)**2 + ((dz)/6)**2);
-          if (nasal <= 1.0 && outerSkull <= 1.0) {
-            data[idx] = -900;
           }
         }
       }
@@ -142,7 +142,7 @@ export default function DICOMViewer() {
     return () => clearInterval(interval);
   }, [playing]);
 
-  // 3D MIP Rendering - Uses FIXED bone window settings
+  // 3D SURFACE RENDERING - Shows first bone surface hit
   useEffect(() => {
     if (!is3D || !volumeData || !canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -158,20 +158,26 @@ export default function DICOMViewer() {
     const cosX = Math.cos(radX), sinX = Math.sin(radX);
     const cosY = Math.cos(radY), sinY = Math.sin(radY);
     
-    // FIXED 3D settings - always use bone window for MIP
-    const mipCenter = 500;
-    const mipWidth = 2000;
-    const mipMin = mipCenter - mipWidth / 2;
+    // Light direction (from top-left-front)
+    const lightDir = { x: -0.5, y: -0.6, z: -0.6 };
+    const lightMag = Math.sqrt(lightDir.x**2 + lightDir.y**2 + lightDir.z**2);
+    lightDir.x /= lightMag; lightDir.y /= lightMag; lightDir.z /= lightMag;
+    
+    const boneThreshold = 400; // HU threshold for bone
     
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
-        let maxVal = -2000;
+        let hitVal = 0;
+        let hitDepth = -1;
+        let normal = { x: 0, y: 0, z: 1 };
         
+        // Ray march from front to back
         for (let t = 0; t < 150; t++) {
           let x = px - width / 2;
           let y = py - height / 2;
           let z = t - 75;
           
+          // Rotate point
           const x1 = x * cosY + z * sinY;
           const z1 = -x * sinY + z * cosY;
           const y1 = y * cosX - z1 * sinX;
@@ -181,19 +187,43 @@ export default function DICOMViewer() {
           const sy = Math.floor(y1 + height / 2);
           const sz = Math.floor(z2 + depth / 2);
           
-          if (sx >= 0 && sx < width && sy >= 0 && sy < height && sz >= 0 && sz < depth) {
+          if (sx >= 1 && sx < width-1 && sy >= 1 && sy < height-1 && sz >= 1 && sz < depth-1) {
             const val = data[sz * width * height + sy * width + sx];
-            if (val > maxVal) maxVal = val;
+            
+            // First hit on bone surface
+            if (val > boneThreshold && hitDepth < 0) {
+              hitVal = val;
+              hitDepth = t;
+              
+              // Calculate gradient for surface normal (central differences)
+              const gx = data[sz * width * height + sy * width + (sx+1)] - data[sz * width * height + sy * width + (sx-1)];
+              const gy = data[sz * width * height + (sy+1) * width + sx] - data[sz * width * height + (sy-1) * width + sx];
+              const gz = data[(sz+1) * width * height + sy * width + sx] - data[(sz-1) * width * height + sy * width + sx];
+              
+              const mag = Math.sqrt(gx*gx + gy*gy + gz*gz) || 1;
+              normal = { x: gx/mag, y: gy/mag, z: gz/mag };
+              break;
+            }
           }
         }
         
-        let intensity = ((maxVal - mipMin) / mipWidth) * 255;
-        intensity = Math.max(0, Math.min(255, intensity));
+        let intensity = 0;
+        if (hitDepth >= 0) {
+          // Phong shading
+          const ambient = 0.3;
+          const diffuse = Math.max(0, -(normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z));
+          intensity = Math.min(255, (ambient + 0.7 * diffuse) * 255);
+          
+          // Depth darkening
+          const depthFactor = 1 - (hitDepth / 200);
+          intensity *= Math.max(0.5, depthFactor);
+        }
         
         const idx = (py * width + px) * 4;
-        imageData.data[idx] = intensity;
-        imageData.data[idx + 1] = intensity;
-        imageData.data[idx + 2] = intensity;
+        // Bone color tint (slight cream/ivory)
+        imageData.data[idx] = Math.min(255, intensity * 1.0);
+        imageData.data[idx + 1] = Math.min(255, intensity * 0.95);
+        imageData.data[idx + 2] = Math.min(255, intensity * 0.85);
         imageData.data[idx + 3] = 255;
       }
     }
@@ -203,8 +233,8 @@ export default function DICOMViewer() {
   const handleMouseDrag = (e) => {
     if (!is3D || e.buttons !== 1) return;
     setRotation(r => ({
-      x: Math.max(-90, Math.min(90, r.x + e.movementY * 0.5)),
-      y: r.y + e.movementX * 0.5
+      x: Math.max(-60, Math.min(60, r.x + e.movementY * 0.5)),
+      y: r.y - e.movementX * 0.5
     }));
   };
 
@@ -236,17 +266,17 @@ export default function DICOMViewer() {
                 <button onClick={() => setIs3D(false) || setView('axial')} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'axial' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Axial</button>
                 <button onClick={() => setIs3D(false) || setView('coronal')} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'coronal' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Coronal</button>
                 <button onClick={() => setIs3D(false) || setView('sagittal')} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'sagittal' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Sagittal</button>
-                <button onClick={() => setIs3D(true)} className={`px-3 py-1.5 rounded-lg text-sm ${is3D ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>3D MIP</button>
+                <button onClick={() => setIs3D(true)} className={`px-3 py-1.5 rounded-lg text-sm ${is3D ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>3D Skull</button>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <Crosshair size={14} />
-                <span>{is3D ? 'Bone MIP' : `Slice: ${Math.floor((slice / 100) * 99) + 1}/100`}</span>
+                <span>{is3D ? 'Surface Render' : `Slice: ${Math.floor((slice / 100) * 99) + 1}/100`}</span>
               </div>
             </div>
 
             <div className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '400px' }}>
               <canvas ref={canvasRef} onMouseMove={handleMouseDrag} className={is3D ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"} style={{ transform: `scale(${zoom})` }} />
-              {is3D && <div className="absolute bottom-3 left-3 text-xs text-slate-400 bg-black/50 px-2 py-1 rounded">Drag to rotate • Bone MIP (WC:500 WW:2000)</div>}
+              {is3D && <div className="absolute bottom-3 left-3 text-xs text-slate-400 bg-black/50 px-2 py-1 rounded">Drag to rotate • Surface Rendering</div>}
               {!is3D && <div className="absolute bottom-3 left-3 text-xs text-slate-400 bg-black/50 px-2 py-1 rounded">{view.charAt(0).toUpperCase() + view.slice(1)} View</div>}
             </div>
 
@@ -264,7 +294,7 @@ export default function DICOMViewer() {
               <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 rounded bg-slate-700 hover:bg-slate-600"><ZoomOut size={14} /></button>
               <span className="text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
               <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className="p-1.5 rounded bg-slate-700 hover:bg-slate-600"><ZoomIn size={14} /></button>
-              <button onClick={() => { setZoom(2); setRotation({ x: 15, y: 25 }); }} className="p-1.5 rounded bg-slate-700 hover:bg-slate-600 ml-2"><RotateCcw size={14} /></button>
+              <button onClick={() => { setZoom(2); setRotation({ x: 10, y: -20 }); }} className="p-1.5 rounded bg-slate-700 hover:bg-slate-600 ml-2"><RotateCcw size={14} /></button>
             </div>
           </div>
         </div>
@@ -301,11 +331,11 @@ export default function DICOMViewer() {
 
           {is3D && (
             <div className="bg-slate-800 rounded-xl p-4">
-              <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><Bone size={16} className="text-violet-400" />3D MIP Settings</h3>
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><Box size={16} className="text-violet-400" />3D Rendering</h3>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-slate-400">Rendering</span><span>Maximum Intensity</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Window Center</span><span>500 HU (Bone)</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Window Width</span><span>2000 HU</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Method</span><span>Surface (First Hit)</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Threshold</span><span>400 HU (Bone)</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Shading</span><span>Phong</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Rotation X</span><span>{Math.round(rotation.x)}°</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Rotation Y</span><span>{Math.round(rotation.y)}°</span></div>
               </div>
@@ -323,13 +353,12 @@ export default function DICOMViewer() {
           </div>
 
           <div className="bg-gradient-to-br from-violet-900/30 to-purple-900/30 border border-violet-700/30 rounded-xl p-4">
-            <h3 className="text-sm font-medium text-violet-300 mb-2">Demo Features</h3>
+            <h3 className="text-sm font-medium text-violet-300 mb-2">Visible Anatomy</h3>
             <ul className="text-xs text-slate-400 space-y-1">
-              <li>• Skull with eye sockets</li>
-              <li>• Gray & white matter</li>
-              <li>• Lateral ventricles (CSF)</li>
-              <li>• Simulated tumor lesion</li>
+              <li>• Cranium (skull bone)</li>
+              <li>• Eye sockets (orbits)</li>
               <li>• Nasal cavity</li>
+              <li>• Oral cavity</li>
             </ul>
           </div>
         </div>

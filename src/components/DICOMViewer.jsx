@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Layers, RotateCcw, ZoomIn, ZoomOut, Sun, Contrast, Brain, Bone, Heart, Upload, ChevronLeft, ChevronRight, Play, Pause, Crosshair } from 'lucide-react';
+import { Layers, RotateCcw, ZoomIn, ZoomOut, Sun, Contrast, Brain, Bone, Heart, Upload, ChevronLeft, ChevronRight, Play, Pause, Crosshair } from 'lucide-react';
 
 export default function DICOMViewer() {
   const canvasRef = useRef(null);
@@ -28,7 +28,7 @@ export default function DICOMViewer() {
           
           const skullDist = Math.sqrt((dx/50)**2 + (dy/55)**2 + (dz/40)**2);
           if (skullDist < 1 && skullDist > 0.85) {
-            data[idx] = 1000 + Math.random() * 200;
+            data[idx] = 800 + Math.random() * 400;
           } else if (skullDist < 0.85) {
             data[idx] = 30 + Math.random() * 20;
             const ventDist = Math.sqrt((dx/15)**2 + (dy/10)**2 + ((dz+5)/20)**2);
@@ -152,6 +152,19 @@ export default function DICOMViewer() {
     setRotation(r => ({ x: r.x + e.movementY * 0.5, y: r.y + e.movementX * 0.5 }));
   };
 
+  const toggle3D = (enabled) => {
+    setIs3D(enabled);
+    if (enabled) {
+      setPreset('bone');
+      setWindowCenter(400);
+      setWindowWidth(1500);
+    } else {
+      setPreset('default');
+      setWindowCenter(40);
+      setWindowWidth(400);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4">
       <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-700">
@@ -177,10 +190,10 @@ export default function DICOMViewer() {
           <div className="bg-slate-800 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex gap-2">
-                <button onClick={() => { setIs3D(false); setView('axial'); }} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'axial' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Axial</button>
-                <button onClick={() => { setIs3D(false); setView('coronal'); }} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'coronal' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Coronal</button>
-                <button onClick={() => { setIs3D(false); setView('sagittal'); }} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'sagittal' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Sagittal</button>
-                <button onClick={() => setIs3D(true)} className={`px-3 py-1.5 rounded-lg text-sm ${is3D ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>3D MIP</button>
+                <button onClick={() => { toggle3D(false); setView('axial'); }} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'axial' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Axial</button>
+                <button onClick={() => { toggle3D(false); setView('coronal'); }} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'coronal' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Coronal</button>
+                <button onClick={() => { toggle3D(false); setView('sagittal'); }} className={`px-3 py-1.5 rounded-lg text-sm ${!is3D && view === 'sagittal' ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>Sagittal</button>
+                <button onClick={() => toggle3D(true)} className={`px-3 py-1.5 rounded-lg text-sm ${is3D ? 'bg-violet-600' : 'bg-slate-700 hover:bg-slate-600'}`}>3D MIP</button>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <Crosshair size={14} />
